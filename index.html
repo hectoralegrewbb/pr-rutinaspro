@@ -1624,7 +1624,7 @@ function limpiarRepuesto(ei, ci) {
     toast._timeout = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
   }
 
-  / Cargar datos de repuestos de la línea actual
+  // Cargar datos de repuestos de la línea actual
     app.repuestos = JSON.parse(localStorage.getItem('repuestos_' + app.linea) || '{}');
  
     render();
