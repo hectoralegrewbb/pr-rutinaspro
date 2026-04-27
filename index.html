@@ -960,18 +960,26 @@ function buscarRepuesto(query, ei, ci) {
   const inputId = `rep-input-${ei}-${ci}`;
   const listId  = `rep-lista-${ei}-${ci}`;
   const input   = document.getElementById(inputId);
-  const lista   = document.getElementById(listId);
-  if (!lista || !input) return;
+  let lista     = document.getElementById(listId);
+  if (!input) return;
+
+  // Mover el dropdown al body la primera vez para escapar del overflow
+  if (lista && lista.parentElement !== document.body) {
+    document.body.appendChild(lista);
+  }
+  lista = document.getElementById(listId);
+  if (!lista) return;
 
   const q = query.trim().toUpperCase();
   if (q.length < 2) { lista.classList.remove('visible'); return; }
 
-  // Posicionar el dropdown relativo al input en coordenadas de viewport
+  // Posicionar fixed relativo al input
   const rect = input.getBoundingClientRect();
-  lista.style.top    = (rect.bottom + window.scrollY + 4) + 'px';
-  lista.style.left   = rect.left + 'px';
-  lista.style.width  = rect.width + 'px';
-  lista.style.position = 'absolute';
+  lista.style.position = 'fixed';
+  lista.style.top      = (rect.bottom + 4) + 'px';
+  lista.style.left     = rect.left + 'px';
+  lista.style.width    = rect.width + 'px';
+  lista.style.zIndex   = '99999';
 
   const tokens = q.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
   const resultados = [];
