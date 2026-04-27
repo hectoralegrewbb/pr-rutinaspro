@@ -1156,43 +1156,53 @@ function buscarRepuesto(query, ei, ci) {
 }
  
 function seleccionarRepuesto(codigo, desc, ei, ci) {
-  // Guardar en datos
-  if (!app.repuestos)          app.repuestos = {};
-  if (!app.repuestos[ei])      app.repuestos[ei] = {};
-  app.repuestos[ei][ci] = { codigo, desc };
+  if (!app.repuestos)       app.repuestos = {};
+  if (!app.repuestos[ei])   app.repuestos[ei] = {};
+  if (!Array.isArray(app.repuestos[ei][ci])) app.repuestos[ei][ci] = [];
+  // Evitar duplicado
+  if (app.repuestos[ei][ci].some(r => r.codigo === codigo)) {
+    const input = document.getElementById(`rep-input-${ei}-${ci}`);
+    const lista = document.getElementById(`rep-lista-${ei}-${ci}`);
+    if (input) input.value = '';
+    if (lista) lista.classList.remove('visible');
+    return;
+  }
+  app.repuestos[ei][ci].push({ codigo, desc });
   localStorage.setItem('repuestos_' + app.linea, JSON.stringify(app.repuestos));
- 
-  // Actualizar UI
-  const inputId  = `rep-input-${ei}-${ci}`;
-  const listaId  = `rep-lista-${ei}-${ci}`;
-  const badgeId  = `rep-badge-${ei}-${ci}`;
- 
-  const input = document.getElementById(inputId);
-  const lista = document.getElementById(listaId);
-  const badge = document.getElementById(badgeId);
- 
+  const input = document.getElementById(`rep-input-${ei}-${ci}`);
+  const lista = document.getElementById(`rep-lista-${ei}-${ci}`);
   if (input) input.value = '';
   if (lista) lista.classList.remove('visible');
-  if (badge) {
-    badge.classList.add('visible');
-    badge.querySelector('.repuesto-badge-code').textContent = codigo;
-    badge.querySelector('.repuesto-badge-desc').textContent = desc;
-  }
+  renderBadges(ei, ci);
 }
- 
-function limpiarRepuesto(ei, ci) {
-  if (app.repuestos && app.repuestos[ei]) {
-    delete app.repuestos[ei][ci];
+
+function limpiarRepuesto(ei, ci, idx) {
+  if (app.repuestos && app.repuestos[ei] && Array.isArray(app.repuestos[ei][ci])) {
+    app.repuestos[ei][ci].splice(idx, 1);
+    if (app.repuestos[ei][ci].length === 0) delete app.repuestos[ei][ci];
     localStorage.setItem('repuestos_' + app.linea, JSON.stringify(app.repuestos));
   }
-  const badge = document.getElementById(`rep-badge-${ei}-${ci}`);
+  renderBadges(ei, ci);
   const input = document.getElementById(`rep-input-${ei}-${ci}`);
-  if (badge) {
-    badge.classList.remove('visible');
-    badge.querySelector('.repuesto-badge-code').textContent = '';
-    badge.querySelector('.repuesto-badge-desc').textContent = '';
-  }
-  if (input) { input.value = ''; input.focus(); }
+  if (input) input.focus();
+}
+
+function renderBadges(ei, ci) {
+  const wrap = document.getElementById(`rep-badges-${ei}-${ci}`);
+  if (!wrap) return;
+  const lista = (app.repuestos && app.repuestos[ei] && Array.isArray(app.repuestos[ei][ci]))
+    ? app.repuestos[ei][ci] : [];
+  if (!lista.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = lista.map((r, idx) => `
+    <div class="repuesto-badge visible" style="margin-top:${idx === 0 ? '8px' : '6px'};">
+      <div class="repuesto-badge-info">
+        <div class="repuesto-badge-code">${r.codigo}</div>
+        <div class="repuesto-badge-desc">${r.desc}</div>
+      </div>
+      <button class="repuesto-badge-del" onmousedown="limpiarRepuesto(${ei},${ci},${idx})" type="button">
+        <span class="material-icons-round" style="font-size:20px; pointer-events:none;">delete</span>
+      </button>
+    </div>`).join('');
 }
 
   function render() {
@@ -1334,15 +1344,21 @@ function limpiarRepuesto(ei, ci) {
                   onblur="setTimeout(() => { const l = document.getElementById('rep-lista-${ei}-${ci}'); if(l) l.classList.remove('visible'); }, 200)">
               </div>
               <div class="repuesto-sugerencias" id="rep-lista-${ei}-${ci}"></div>
-              <div class="repuesto-badge ${(app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) ? 'visible' : ''}"
-                   id="rep-badge-${ei}-${ci}">
-                <div class="repuesto-badge-info">
-                  <div class="repuesto-badge-code">${(app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) ? app.repuestos[ei][ci].codigo : ''}</div>
-                  <div class="repuesto-badge-desc">${(app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) ? app.repuestos[ei][ci].desc : ''}</div>
-                </div>
-                <button class="repuesto-badge-del" onclick="limpiarRepuesto(${ei},${ci})" type="button">
-                  <span class="material-icons-round" style="font-size:20px; pointer-events:none;">delete</span>
-                </button>
+              <div id="rep-badges-${ei}-${ci}">
+                ${(() => {
+                  const lista = (app.repuestos && app.repuestos[ei] && Array.isArray(app.repuestos[ei][ci]))
+                    ? app.repuestos[ei][ci] : [];
+                  return lista.map((r, idx) => `
+                    <div class="repuesto-badge visible" style="margin-top:${idx === 0 ? '8px' : '6px'};">
+                      <div class="repuesto-badge-info">
+                        <div class="repuesto-badge-code">${r.codigo}</div>
+                        <div class="repuesto-badge-desc">${r.desc}</div>
+                      </div>
+                      <button class="repuesto-badge-del" onmousedown="limpiarRepuesto(${ei},${ci},${idx})" type="button">
+                        <span class="material-icons-round" style="font-size:20px; pointer-events:none;">delete</span>
+                      </button>
+                    </div>`).join('');
+                })()}
               </div>
             </div>
           </div>
@@ -1448,12 +1464,13 @@ function limpiarRepuesto(ei, ci) {
       nombre: eq.nombre,
       checks: eq.checks.map((cp, ci) => {
         const d = (app.datos[ei] && app.datos[ei][ci]) || { m: false, c: '' };
-        const rep = (app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) || null;
+        const rep = (app.repuestos && app.repuestos[ei] && Array.isArray(app.repuestos[ei][ci]))
+          ? app.repuestos[ei][ci] : [];
         return {
           texto:    cp,
           marcado:  d.m,
           comentario: d.c,
-          repuesto: rep  // { codigo, desc } o null
+          repuestos: rep  // array de { codigo, desc }
         };
       })
     }))
@@ -1570,8 +1587,9 @@ function limpiarRepuesto(ei, ci) {
     const pedidosRepuestos = [];
     equipos.forEach((eq, ei) => {
       eq.checks.forEach((cp, ci) => {
-        const rep = app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci];
-        if (rep && rep.codigo) {
+        const reps = (app.repuestos && app.repuestos[ei] && Array.isArray(app.repuestos[ei][ci]))
+          ? app.repuestos[ei][ci] : [];
+        reps.forEach(rep => {
           pedidosRepuestos.push({
             semana:      getSemanaISO(),
             fecha:       payload.fecha,
@@ -1586,7 +1604,7 @@ function limpiarRepuesto(ei, ci) {
             nota:        '',
             estado:      'Pendiente'
           });
-        }
+        });
       });
     });
 
