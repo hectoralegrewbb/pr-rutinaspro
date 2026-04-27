@@ -741,9 +741,13 @@
 /* ── PAÑOL ── */
 .paniol-header-badge {
   background: linear-gradient(135deg, #064e3b, #065f46);
-  color: white; border-radius: 16px; padding: 20px 24px;
+  color: white; border-radius: 16px; padding: 18px 20px;
   margin-bottom: 20px; display: flex; align-items: center;
-  justify-content: space-between; gap: 12px;
+  justify-content: space-between; gap: 8px;
+}
+/* En pantallas < 420px ocultar texto "Excel", solo mostrar ícono */
+@media (max-width: 420px) {
+  .paniol-excel-label { display: none; }
 }
 .paniol-filtros {
   background: white; border: 1px solid #e2e8f0; border-radius: 16px;
@@ -2043,30 +2047,33 @@ function renderBadges(ei, ci) {
 
     let html = `
     <div class="paniol-header-badge">
-      <div>
-        <div style="font-size:18px; font-weight:800;">
-          <span class="material-icons-round" style="vertical-align:middle; margin-right:6px; font-size:20px;">inventory_2</span>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
+          <span class="material-icons-round" style="font-size:20px;">inventory_2</span>
           Pedidos de Pañol
         </div>
-        <div style="font-size:12px; opacity:.8; margin-top:4px;">Semana ${getSemanaISO()} · ${paniolState.email}</div>
+        <div style="font-size:11px; opacity:.75; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          Semana ${getSemanaISO()} · ${paniolState.email}
+        </div>
       </div>
-      <div style="display:flex; gap:8px; align-items:center;">
+      <div style="display:flex; gap:6px; align-items:center; flex-shrink:0; margin-left:12px;">
         <button onclick="cargarPedidosPaniol()" title="Actualizar"
-          style="flex:0; background:rgba(255,255,255,0.2); border:none; border-radius:10px;
-                 width:40px; height:40px; padding:0; color:white; cursor:pointer; font-size:20px;
-                 display:flex; align-items:center; justify-content:center;">
+          style="background:rgba(255,255,255,0.2); border:none; border-radius:10px;
+                 width:40px; height:40px; padding:0; color:white; cursor:pointer;
+                 display:flex; align-items:center; justify-content:center; flex-shrink:0;">
           <span class="material-icons-round" style="font-size:20px;">refresh</span>
         </button>
-        <button onclick="descargarExcelPaniol()"
-          style="flex:0; background:rgba(255,255,255,0.2); border:none; border-radius:10px;
-                 padding:8px 14px; color:white; font-weight:700; font-size:13px; cursor:pointer;
-                 display:flex; align-items:center; gap:6px;">
-          <span class="material-icons-round" style="font-size:18px;">download</span> Excel
+        <button onclick="descargarExcelPaniol()" title="Descargar Excel"
+          style="background:rgba(255,255,255,0.2); border:none; border-radius:10px;
+                 height:40px; padding:0 14px; color:white; font-weight:700; font-size:13px; cursor:pointer;
+                 display:flex; align-items:center; gap:6px; flex-shrink:0; white-space:nowrap;">
+          <span class="material-icons-round" style="font-size:18px;">download</span>
+          <span class="paniol-excel-label">Excel</span>
         </button>
-        <button onclick="paniolState.loggedIn=false; paniolState.email=''; renderPaniol();"
-          style="flex:0; background:rgba(255,255,255,0.15); border:none; border-radius:10px;
+        <button onclick="paniolState.loggedIn=false; paniolState.email=''; renderPaniol();" title="Cerrar sesión"
+          style="background:rgba(255,255,255,0.15); border:none; border-radius:10px;
                  width:40px; height:40px; padding:0; color:white; cursor:pointer;
-                 display:flex; align-items:center; justify-content:center;">
+                 display:flex; align-items:center; justify-content:center; flex-shrink:0;">
           <span class="material-icons-round" style="font-size:18px;">logout</span>
         </button>
       </div>
