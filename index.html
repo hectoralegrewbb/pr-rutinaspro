@@ -230,24 +230,26 @@
     }
 
     .checkpoint {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 16px 18px;
-      margin-top: 12px;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      overflow: hidden;
-    }
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  padding-left: 22px;
+  margin-top: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: visible;
+}
 
-    .checkpoint::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 4px;
-      background: #cbd5e1;
-      transition: background 0.3s ease;
-    }
+.checkpoint::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: #cbd5e1;
+  transition: background 0.3s ease;
+  border-radius: 14px 0 0 14px;
+}
 
     .checkpoint:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); }
 
@@ -635,10 +637,16 @@
   background: white; box-shadow: 0 0 0 3px rgba(16,185,129,.1);
 }
 .repuesto-sugerencias {
-  position: absolute; left: 0; right: 0; top: 100%;
-  background: white; border: 1px solid #e2e8f0; border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.1); z-index: 200;
-  overflow: hidden; display: none; margin-top: 4px;
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  z-index: 9999;
+  overflow: hidden;
+  display: none;
+  margin-top: 4px;
 }
 .repuesto-sugerencias.visible { display: block; }
 .repuesto-item {
@@ -949,43 +957,43 @@ let paniolData = [];  // [['M0001MAS', 'CADENA AC07404672...'], ...]
 // ── 4. Funciones de búsqueda de repuesto ────────────────────────────────
  
 function buscarRepuesto(query, ei, ci) {
-  const listId = `rep-lista-${ei}-${ci}`;
-  const lista  = document.getElementById(listId);
-  if (!lista) return;
- 
+  const inputId = `rep-input-${ei}-${ci}`;
+  const listId  = `rep-lista-${ei}-${ci}`;
+  const input   = document.getElementById(inputId);
+  const lista   = document.getElementById(listId);
+  if (!lista || !input) return;
+
   const q = query.trim().toUpperCase();
   if (q.length < 2) { lista.classList.remove('visible'); return; }
- 
-  // Match por código exacto primero, luego por palabras en descripción
+
+  // Posicionar el dropdown relativo al input en coordenadas de viewport
+  const rect = input.getBoundingClientRect();
+  lista.style.top    = (rect.bottom + window.scrollY + 4) + 'px';
+  lista.style.left   = rect.left + 'px';
+  lista.style.width  = rect.width + 'px';
+  lista.style.position = 'absolute';
+
   const tokens = q.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
   const resultados = [];
- 
+
   for (const item of paniolData) {
     const codigo = item[0].toUpperCase();
     const desc   = item[1].toLowerCase();
- 
-    // Match exacto por código
     if (codigo.startsWith(q)) {
       resultados.push({ item, score: 100 });
       if (resultados.length >= 5) break;
       continue;
     }
- 
-    // Match por tokens en descripción
     const matchCount = tokens.filter(t => desc.includes(t)).length;
-    if (matchCount > 0) {
-      resultados.push({ item, score: matchCount });
-    }
+    if (matchCount > 0) resultados.push({ item, score: matchCount });
   }
- 
-  // Ordenar por score desc, tomar top 5
+
   resultados.sort((a, b) => b.score - a.score);
   const top5 = resultados.slice(0, 5);
- 
   if (!top5.length) { lista.classList.remove('visible'); return; }
- 
+
   lista.innerHTML = top5.map(({ item }) =>
-    `<div class="repuesto-item" onclick="seleccionarRepuesto('${item[0]}', '${item[1].replace(/'/g, "\\'")}', ${ei}, ${ci})">
+    `<div class="repuesto-item" onmousedown="seleccionarRepuesto('${item[0]}', '${item[1].replace(/'/g, "\\'")}', ${ei}, ${ci})">
       <div class="repuesto-item-code">${item[0]}</div>
       <div class="repuesto-item-desc">${item[1]}</div>
     </div>`
