@@ -617,6 +617,53 @@
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
     }
+
+.repuesto-wrap { margin-top: 12px; position: relative; }
+.repuesto-label {
+  font-size: 11px; font-weight: 800; color: #64748b;
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 6px; display: block;
+}
+.repuesto-input-row { display: flex; gap: 8px; align-items: center; }
+.repuesto-input {
+  flex: 1; padding: 10px 14px; background: #f8fafc;
+  border: 1.5px solid #e2e8f0; border-radius: 10px;
+  font-size: 14px; font-weight: 500; color: #0f172a; transition: all .25s;
+}
+.repuesto-input:focus {
+  outline: none; border-color: var(--primary);
+  background: white; box-shadow: 0 0 0 3px rgba(16,185,129,.1);
+}
+.repuesto-sugerencias {
+  position: absolute; left: 0; right: 0; top: 100%;
+  background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1); z-index: 200;
+  overflow: hidden; display: none; margin-top: 4px;
+}
+.repuesto-sugerencias.visible { display: block; }
+.repuesto-item {
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid #f1f5f9; transition: background .15s;
+}
+.repuesto-item:last-child { border-bottom: none; }
+.repuesto-item:active { background: #ecfdf5; }
+.repuesto-item-code { font-size: 11px; font-weight: 800; color: var(--primary); margin-bottom: 2px; }
+.repuesto-item-desc { font-size: 13px; color: #334155; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.repuesto-badge {
+  margin-top: 8px; padding: 8px 12px;
+  background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 10px;
+  display: none; align-items: center; gap: 8px;
+}
+.repuesto-badge.visible { display: flex; }
+.repuesto-badge-code { font-size: 11px; font-weight: 800; color: #059669; }
+.repuesto-badge-desc { font-size: 13px; color: #064e3b; font-weight: 600; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.repuesto-badge-del {
+  flex: 0; background: none; border: none; padding: 0;
+  color: #94a3b8; cursor: pointer; font-size: 18px; line-height: 1;
+}
+    
   </style>
 </head>
 
@@ -742,7 +789,7 @@
     userName: localStorage.getItem('userName') || '',
     abiertos: JSON.parse(localStorage.getItem('abiertos') || '{}')
   };
-
+let paniolData = [];  // [['M0001MAS', 'CADENA AC07404672...'], ...]
   app.datos = JSON.parse(localStorage.getItem('datos_' + app.linea) || '{}');
 
   function checkLogin() {
@@ -790,22 +837,24 @@
   }
 
   function save() {
-    localStorage.setItem('linea', app.linea);
-    localStorage.setItem('tecnico', app.tecnico);
-    localStorage.setItem('supervisor', app.supervisor);
-    localStorage.setItem('producto', app.producto);
-    localStorage.setItem('datos_' + app.linea, JSON.stringify(app.datos));
-    localStorage.setItem('abiertos', JSON.stringify(app.abiertos));
-  }
+  localStorage.setItem('linea',     app.linea);
+  localStorage.setItem('tecnico',   app.tecnico);
+  localStorage.setItem('supervisor',app.supervisor);
+  localStorage.setItem('producto',  app.producto);
+  localStorage.setItem('datos_'     + app.linea, JSON.stringify(app.datos));
+  localStorage.setItem('repuestos_' + app.linea, JSON.stringify(app.repuestos || {}));
+  localStorage.setItem('abiertos',  JSON.stringify(app.abiertos));
+}
 
   function cambiarLinea(val) {
-    save();
-    app.linea = val;
-    app.datos = JSON.parse(localStorage.getItem('datos_' + app.linea) || '{}');
-    app.abiertos = {};
-    save();
-    render();
-  }
+  save();
+  app.linea = val;
+  app.datos     = JSON.parse(localStorage.getItem('datos_'     + app.linea) || '{}');
+  app.repuestos = JSON.parse(localStorage.getItem('repuestos_' + app.linea) || '{}');
+  app.abiertos  = {};
+  save();
+  render();
+}
 
   function switchTab(tab) {
     currentTab = tab;
@@ -817,13 +866,14 @@
   }
 
   function limpiarLinea() {
-    if (confirm("¿Estás seguro de que deseas limpiar la rutina actual?")) {
-      app.datos = {};
-      app.abiertos = {};
-      save();
-      render();
-    }
+  if (confirm("¿Estás seguro de que deseas limpiar la rutina actual?")) {
+    app.datos     = {};
+    app.repuestos = {};
+    app.abiertos  = {};
+    save();
+    render();
   }
+}
 
   function updateBtnGuardar() {
     const btn = document.getElementById('btnGuardar');
@@ -865,6 +915,118 @@
     if (app.abiertos[ei]) equipoEl.classList.add('abierto');
     else equipoEl.classList.remove('abierto');
   }
+
+  async function cargarPaniol() {
+  // Intentar desde localStorage primero (cache de 24hs)
+  const cached = localStorage.getItem('paniol_cache');
+  const cachedTs = parseInt(localStorage.getItem('paniol_cache_ts') || '0');
+  const ahora = Date.now();
+  const UN_DIA = 24 * 60 * 60 * 1000;
+ 
+  if (cached && (ahora - cachedTs) < UN_DIA) {
+    try {
+      paniolData = JSON.parse(cached);
+      console.log(`Pañol desde cache: ${paniolData.length} ítems`);
+      return;
+    } catch (e) { /* ignorar, recargar */ }
+  }
+ 
+  // Cargar desde GitHub Pages
+  try {
+    const url = window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'paniol_data.json';
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error('no ok');
+    paniolData = await res.json();
+    localStorage.setItem('paniol_cache', JSON.stringify(paniolData));
+    localStorage.setItem('paniol_cache_ts', String(Date.now()));
+    console.log(`Pañol cargado: ${paniolData.length} ítems`);
+  } catch (e) {
+    console.warn('No se pudo cargar pañol_data.json:', e.message);
+    paniolData = [];
+  }
+}
+ 
+// ── 4. Funciones de búsqueda de repuesto ────────────────────────────────
+ 
+function buscarRepuesto(query, ei, ci) {
+  const listId = `rep-lista-${ei}-${ci}`;
+  const lista  = document.getElementById(listId);
+  if (!lista) return;
+ 
+  const q = query.trim().toUpperCase();
+  if (q.length < 2) { lista.classList.remove('visible'); return; }
+ 
+  // Match por código exacto primero, luego por palabras en descripción
+  const tokens = q.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
+  const resultados = [];
+ 
+  for (const item of paniolData) {
+    const codigo = item[0].toUpperCase();
+    const desc   = item[1].toLowerCase();
+ 
+    // Match exacto por código
+    if (codigo.startsWith(q)) {
+      resultados.push({ item, score: 100 });
+      if (resultados.length >= 5) break;
+      continue;
+    }
+ 
+    // Match por tokens en descripción
+    const matchCount = tokens.filter(t => desc.includes(t)).length;
+    if (matchCount > 0) {
+      resultados.push({ item, score: matchCount });
+    }
+  }
+ 
+  // Ordenar por score desc, tomar top 5
+  resultados.sort((a, b) => b.score - a.score);
+  const top5 = resultados.slice(0, 5);
+ 
+  if (!top5.length) { lista.classList.remove('visible'); return; }
+ 
+  lista.innerHTML = top5.map(({ item }) =>
+    `<div class="repuesto-item" onclick="seleccionarRepuesto('${item[0]}', '${item[1].replace(/'/g, "\\'")}', ${ei}, ${ci})">
+      <div class="repuesto-item-code">${item[0]}</div>
+      <div class="repuesto-item-desc">${item[1]}</div>
+    </div>`
+  ).join('');
+  lista.classList.add('visible');
+}
+ 
+function seleccionarRepuesto(codigo, desc, ei, ci) {
+  // Guardar en datos
+  if (!app.repuestos)          app.repuestos = {};
+  if (!app.repuestos[ei])      app.repuestos[ei] = {};
+  app.repuestos[ei][ci] = { codigo, desc };
+  localStorage.setItem('repuestos_' + app.linea, JSON.stringify(app.repuestos));
+ 
+  // Actualizar UI
+  const inputId  = `rep-input-${ei}-${ci}`;
+  const listaId  = `rep-lista-${ei}-${ci}`;
+  const badgeId  = `rep-badge-${ei}-${ci}`;
+ 
+  const input = document.getElementById(inputId);
+  const lista = document.getElementById(listaId);
+  const badge = document.getElementById(badgeId);
+ 
+  if (input) input.value = '';
+  if (lista) lista.classList.remove('visible');
+  if (badge) {
+    badge.classList.add('visible');
+    badge.querySelector('.repuesto-badge-code').textContent = codigo;
+    badge.querySelector('.repuesto-badge-desc').textContent = desc;
+  }
+}
+ 
+function limpiarRepuesto(ei, ci) {
+  if (app.repuestos && app.repuestos[ei]) {
+    delete app.repuestos[ei][ci];
+    localStorage.setItem('repuestos_' + app.linea, JSON.stringify(app.repuestos));
+  }
+  const badgeId = `rep-badge-${ei}-${ci}`;
+  const badge   = document.getElementById(badgeId);
+  if (badge) badge.classList.remove('visible');
+}
 
   function render() {
     if (!checkLogin()) return;
@@ -987,8 +1149,28 @@
             </label>
             <div class="toggle-label">${d.m ? 'Falla' : 'OK'}</div>
           </div>
-          <div class="check-comment">
+           <div class="check-comment">
             <textarea onchange="updateComment(${ei},${ci},this.value)" placeholder="Describa el inconveniente encontrado aquí claramente...">${d.c}</textarea>
+            <div class="repuesto-wrap">
+              <span class="repuesto-label">🔧 Repuesto necesario (opcional)</span>
+              <div class="repuesto-input-row">
+                <input class="repuesto-input" id="rep-input-${ei}-${ci}"
+                  type="text" autocomplete="off"
+                  placeholder="Buscá por código (ej: M0001MAS) o palabras clave..."
+                  oninput="buscarRepuesto(this.value, ${ei}, ${ci})"
+                  onfocus="buscarRepuesto(this.value, ${ei}, ${ci})"
+                  onblur="setTimeout(() => { const l = document.getElementById('rep-lista-${ei}-${ci}'); if(l) l.classList.remove('visible'); }, 200)">
+              </div>
+              <div class="repuesto-sugerencias" id="rep-lista-${ei}-${ci}"></div>
+              <div class="repuesto-badge ${(app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) ? 'visible' : ''}"
+                   id="rep-badge-${ei}-${ci}">
+                <div style="flex:1">
+                  <div class="repuesto-badge-code">${(app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) ? app.repuestos[ei][ci].codigo : ''}</div>
+                  <div class="repuesto-badge-desc">${(app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) ? app.repuestos[ei][ci].desc : ''}</div>
+                </div>
+                <button class="repuesto-badge-del" onclick="limpiarRepuesto(${ei},${ci})" type="button">×</button>
+              </div>
+            </div>
           </div>
         </div>`;
       });
@@ -1081,22 +1263,28 @@
   }
 
   function buildPayload() {
-    const equipos = LINEAS[app.linea] || [];
-    return {
-      fecha: new Date().toISOString(),
-      linea: app.linea,
-      tecnico: app.tecnico,
-      supervisor: app.supervisor,
-      producto: app.producto,
-      equipos: equipos.map((eq, ei) => ({
-        nombre: eq.nombre,
-        checks: eq.checks.map((cp, ci) => {
-          const d = (app.datos[ei] && app.datos[ei][ci]) || { m: false, c: '' };
-          return { texto: cp, marcado: d.m, comentario: d.c };
-        })
-      }))
-    };
-  }
+  const equipos = LINEAS[app.linea] || [];
+  return {
+    fecha:     new Date().toISOString(),
+    linea:     app.linea,
+    tecnico:   app.tecnico,
+    supervisor:app.supervisor,
+    producto:  app.producto,
+    equipos:   equipos.map((eq, ei) => ({
+      nombre: eq.nombre,
+      checks: eq.checks.map((cp, ci) => {
+        const d = (app.datos[ei] && app.datos[ei][ci]) || { m: false, c: '' };
+        const rep = (app.repuestos && app.repuestos[ei] && app.repuestos[ei][ci]) || null;
+        return {
+          texto:    cp,
+          marcado:  d.m,
+          comentario: d.c,
+          repuesto: rep  // { codigo, desc } o null
+        };
+      })
+    }))
+  };
+}
 
   function generarReporte(payload) {
     const fecha = new Date(payload.fecha);
@@ -1436,9 +1624,13 @@
     toast._timeout = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
   }
 
-  render();
-  updateOfflineBanner();
-  processQueue();
+  / Cargar datos de repuestos de la línea actual
+    app.repuestos = JSON.parse(localStorage.getItem('repuestos_' + app.linea) || '{}');
+ 
+    render();
+    updateOfflineBanner();
+    processQueue();
+    cargarPaniol();  // async — carga el dataset de pañol en background
 </script>
 </body>
 </html>
