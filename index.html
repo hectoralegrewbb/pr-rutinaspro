@@ -136,7 +136,47 @@
       box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
     }
 
-    .login-status { padding: 12px 20px !important; border-radius: 16px !important; }
+    .login-status {
+      padding: 12px 20px !important;
+      border-radius: 16px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 12px !important;
+    }
+    .login-status .login-email {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .login-status .login-email span.material-icons-round {
+      flex-shrink: 0;
+    }
+    .login-status .login-email-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+    .login-status .login-btn-salir {
+      flex-shrink: 0;
+      padding: 8px 14px;
+      background: #f1f5f9;
+      font-size: 13px;
+      font-weight: 700;
+      color: #475569;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
 
     .equipo {
       background: white;
@@ -151,7 +191,6 @@
     .equipo.abierto {
       border-color: var(--primary);
       box-shadow: 0 8px 30px rgba(16, 185, 129, 0.12);
-      transform: translateY(-2px);
     }
 
     .equipo-head {
@@ -422,7 +461,6 @@
     .btn-guardar:hover:not(:disabled) {
       background: var(--primary-dark);
       box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-      transform: translateY(-2px);
     }
 
     .btn-otro { background: #f1f5f9; color: #334155; }
@@ -490,7 +528,6 @@
       background: white;
       color: var(--primary);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      transform: scale(1.02);
     }
 
     @media (min-width: 480px) {
@@ -1030,6 +1067,24 @@ let paniolData = [];  // [['M0001MAS', 'CADENA AC07404672...'], ...]
     if (!app.datos[ei]) app.datos[ei] = {};
     if (!app.datos[ei][ci]) app.datos[ei][ci] = { m: false, c: '' };
     app.datos[ei][ci].m = !app.datos[ei][ci].m;
+
+    // Al desmarcar: limpiar comentario y repuestos asociados
+    if (!app.datos[ei][ci].m) {
+      app.datos[ei][ci].c = '';
+      // Limpiar textarea en DOM
+      const checkEl = document.querySelector(`[data-checkpoint="${ei}-${ci}"]`);
+      if (checkEl) {
+        const ta = checkEl.querySelector('textarea');
+        if (ta) ta.value = '';
+      }
+      // Limpiar repuestos
+      if (app.repuestos && app.repuestos[ei]) {
+        delete app.repuestos[ei][ci];
+        localStorage.setItem('repuestos_' + app.linea, JSON.stringify(app.repuestos));
+      }
+      renderBadges(ei, ci);
+    }
+
     vibratePhone();
     save();
     updateCheckpointDOM(ei, ci);
@@ -1235,9 +1290,9 @@ function renderBadges(ei, ci) {
     if (!checkLogin()) return;
 
     if (currentTab === 'tickets') {
-      let ht = `<div class="section login-status" style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:10px;"><span class="material-icons-round">account_circle</span> ${app.userEmail}</div>
-        <button onclick="app.userEmail=''; app.userName=''; save(); checkLogin();" style="flex:none; padding:8px 16px; background:#f1f5f9; font-size:13px; font-weight:700; color:#475569; border-radius:10px; min-width:auto;"><span class="material-icons-round" style="font-size:18px;">logout</span> Salir</button>
+      let ht = `<div class="section login-status">
+        <div class="login-email"><span class="material-icons-round">account_circle</span><span class="login-email-text">${app.userEmail}</span></div>
+        <button class="login-btn-salir" onclick="app.userEmail=''; app.userName=''; save(); checkLogin();"><span class="material-icons-round" style="font-size:18px;">logout</span> Salir</button>
       </div>`;
 
       ht += `<div class="section">
@@ -1280,9 +1335,9 @@ function renderBadges(ei, ci) {
     const puedeCargarRutinas = EMAILS_RUTINAS.includes(app.userEmail.toLowerCase());
 
     if (!puedeCargarRutinas) {
-      let html = `<div class="section login-status" style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:10px;"><span class="material-icons-round">account_circle</span> ${app.userEmail}</div>
-        <button onclick="app.userEmail=''; app.userName=''; save(); checkLogin(); render();" style="flex:none; padding:8px 16px; background:#f1f5f9; font-size:13px; font-weight:700; color:#475569; border-radius:10px; min-width:auto;"><span class="material-icons-round" style="font-size:18px;">logout</span> Salir</button>
+      let html = `<div class="section login-status">
+        <div class="login-email"><span class="material-icons-round">account_circle</span><span class="login-email-text">${app.userEmail}</span></div>
+        <button class="login-btn-salir" onclick="app.userEmail=''; app.userName=''; save(); checkLogin(); render();"><span class="material-icons-round" style="font-size:18px;">logout</span> Salir</button>
       </div>
       <div class="section" style="text-align:center; padding:60px 20px;">
         <span class="material-icons-round" style="font-size:64px; color:#cbd5e1; display:block; margin-bottom:20px;">lock</span>
@@ -1296,9 +1351,9 @@ function renderBadges(ei, ci) {
       return;
     }
 
-    let html = `<div class="section login-status" style="display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:10px;"><span class="material-icons-round">account_circle</span> ${app.userEmail}</div>
-      <button onclick="app.userEmail=''; app.userName=''; save(); checkLogin(); render();" style="flex:none; padding:8px 16px; background:#f1f5f9; font-size:13px; font-weight:700; color:#475569; border-radius:10px; min-width:auto;"><span class="material-icons-round" style="font-size:18px;">logout</span> Salir</button>
+    let html = `<div class="section login-status">
+      <div class="login-email"><span class="material-icons-round">account_circle</span><span class="login-email-text">${app.userEmail}</span></div>
+      <button class="login-btn-salir" onclick="app.userEmail=''; app.userName=''; save(); checkLogin(); render();"><span class="material-icons-round" style="font-size:18px;">logout</span> Salir</button>
     </div>`;
 
     const equipos = LINEAS[app.linea] || [];
